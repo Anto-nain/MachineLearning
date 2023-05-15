@@ -236,3 +236,57 @@ Pour construire un embedding, on dispose de 2 méthodes :
 * **Continuous Bag of Words (CBW) :** Il s'agit de construire un mot en fonction de ses voisins. On prend pour chaque mot un ensemble de mot voisin de lui (souvent les 2 précédents et les 2 suivants) et on va entrainer notre réseau à trouver le mot au milieu en fonction de ses voisins.
 
 * **Skip-Gram :** On part d'un mot et on entraine notre modèle à trouver les mots qui sont habituellement proches de lui. C'est d'une certaine façon l'approche opposée au CBW.
+
+# Sequence 6 : Les réseaux de neurones récurrents (RNN)
+
+## Principe
+L'objectif d'un RNN est de traiter des séries de données (ex : texte, son, vidéo, etc ...). Pour cela, on va utiliser un neurone qui va se réinjecter sa sortie en entrée. Cela permet de traiter des données évolutives (notammment en fonction du temps pour les séries temporelles).
+
+Un neurone classique se présente de la façon suivante :
+$y = \sigma(W_x \cdot X + b)$ avec $W_x$ et $b$ le vecteur des poids et le biais.  
+
+Un neurone récurent part du principe que la sortie du neurone sera réinjectée en entrée de celui-ci avec un autre jeu de poids : $y_t = \sigma(W_x \cdot X_{(t)} + w_y \cdot y_{(t-1)} + b)$ avec $w_y$ le vecteur des poids (scalaire car $y$ est ici scalaire) de la récurrence.
+
+Dans les faits, on ne va pas considérer qu'un seul neurone, mais une cellule contenant plusieurs unités. Dans chaque cellule on dispose d'une entrée vectorielle et d'une sortie vectorielle (composée de la sortie scalaire de chaque unité). La sortie de chaque cellule se fait de lafaçon suivante : $Y_(t) = \phi(W_x \cdot X_{(t)} + W_y \cdot Y_{(t-1)} + B)$ avec $W_x$ et $W_y$ des matrices, $X$, $Y$ et $B$ des vecteurs et $\phi$ une fonction d'activation. On a ici augemnté la dimension de chaque objet car on prend en compte plusieurs unités dans une même cellule. À chaque itération, chaque unité de la cellule va générer une sortie scalaire composante du vecteur $Y$ de sortie.
+
+Pour fonctionner correctement, un réseau récurent nécessite en entrée une série de vecteur d'entrée : $X_{(t_0)}$, $X_{(t_1)}$, $X_{(t_2)}$, ... $X_{(t_n)}$ ; et fournie en sortie : $Y_{(t_0)}$, $Y_{(t_1)}$, $Y_{(t_2)}$, ... $Y_{(t_n)}$.
+
+$W_x$ dépend de la taille du vecteur $X$ en entrée et du nombre d'unité utilisées dans la cellule. $W_y$ dépend du nombre d'unité utilisées dans la cellule et de la taille du vecteur $Y$ en sortie (égal aunombre d'unité car une unité donne une coposante du vecteur $Y$). $B$ dépend du nombre d'unité utilisées dans la cellule. Ainsi :
+* $dim(W_x) = dim(X) \times nb_{unit}$
+* $dim(W_y) = nb_{unit} \times nb_{unit}$
+* $dim(B) = 1 \times nb_{unit}$
+* $dim(Y) = 1 \times nb_{unit}$
+
+## Problème
+On a ici la description d'un réseau récurrent d'ordre 1, c'est à dire qu'on ne considère que la valeur précédente pour la valeur suivante. Cela ne marche donc pas. De plus, réaliser un réseau récurrent "fort" qui considérerait toutes les valeurs précédentes est impossible car cela représente beaucoup trop de données.
+
+## Long Short-Term Memory (LSTM)
+La solution est de garder en mémoire deux choses :
+* La valeur précédente de la sortie (court terme)
+* Une valeur de mémoire construite à partir de toute les valeurs précédentes (long terme)
+
+Ainsi, on a à chaque étape 3 entrées :
+* La valeur d'entrée
+* La valeur de sortie précédente (court terme)
+* La valeur de mémoire (long terme)
+Et on a aussi 2 sorties :
+* La valeur de sortie (réutilisée pour le court terme)
+* La nouvelle valeur de mémoire (utilisée pour le long terme)
+
+**Il existe aussi les GRU (Gated Recurrent Unit) qui sont une version simplifiée et plus récente des LSTM.**
+
+## Différent type d'utilisation :
+* **Serie to Serie** : On a une série de vecteur en entrée et on veut une série de vecteur en sortie (on possède $X_0$ à $X_n$ et on veut $Y_0$ et $Y_n$)
+* **Serie to Vector** : On a une série de vecteur en entrée et on veut un vecteur final en sortie (on possède $X_0$ à $X_n$ et on veut $Y_n$)
+* **Vector to Serie** : On a un vecteur en entrée et on veut une série de vecteur en sortie générée à partir du seul vecteur d'entrée (on possède $X_0$ et on veut $Y_0$ à $Y_n$)
+* **Encoder-Decoder** : On a une série de vecteur en entrée et on veut une série de vecteur en sortie qui seront générés à la suite de la série d'entrée (on possède $X_0$ et $X_1$ et on veut $Y_2$ et $Y_3$)
+
+## Entrainement d'un RNN
+On prend notre suite séquentielle de données et on la scinde en deux parties :
+* La première partie (causale) deviendra notre donnée d'entrainement
+* La seconde partie (conséquence) deviendra notre donnée de test (validation)
+
+Ensuite, on va découper nos deux sets en plus petites séquences et les mélanger entre elles. L'entrainement visera à, pour chaque séquence, en fonction du début de celle-ci de déterminer la suite de la séquence. Ainsi, on va entrainer notre réseau à prédire la suite de la séquence à partir de son début.
+
+**Attention :** Le passé peut-il expliquer le future ? Si oui, un tel réseau peut faire sens, sinon, ça ne fonctionnera pas.
+
