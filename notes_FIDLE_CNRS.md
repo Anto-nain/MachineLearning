@@ -290,3 +290,24 @@ Ensuite, on va découper nos deux sets en plus petites séquences et les mélang
 
 **Attention :** Le passé peut-il expliquer le future ? Si oui, un tel réseau peut faire sens, sinon, ça ne fonctionnera pas.
 
+# Sequence 7 : PyTorch
+PyTorch se trouve, en terme de difficulté, à mi-chemin entre Tensorflow et Keras. Il est plus bas-niveau que Keras, mais moins que Tensorflow.
+
+## PyTorch tensors
+Tout le travail avec PyTorch se situe autour de l'objet `torch.Tensor`. C'est un objet qui ressemble beaucoup à un `numpy.ndarray` mais qui possède des propriétés supplémentaires.
+
+```python
+import torch
+import numpy as np
+t1 = torch.tensor([[1, 2, 3],[4, 5, 6]])
+t2 = torch.tensor(np.array([[1, 2, 3],[4, 5, 6]]))
+t3 = torch.zeros((2, 3), dtype=torch.float32) # On peut naturellement définir le type de données
+```
+**Attention :**
+```python	
+t1[0, 0] # retourne "tensor(1)"
+t1[0, 0].item() # retourne "1"
+```
+De façon générale, il y a pas mal de diufférence de syntaxe mais rien de bien compliqué. Le gros aventage de PyTorch est qu'il permet de faire de la différenciation automatique lors de l'entrainement de réseau de neurones. C'est à de calculer le gradient de la fonction de perte par rapport aux paramètres du réseau.
+
+ Une autre différence est de pouvoir basculer facilement entre CPU et GPU : Pour des gros calculs de prédiction ou d'entrainement, on peut basculer manuellement sur le GPU pour les réaliser. Il faut bien penser à revenir sur le CPU pour afficher les résultats.
