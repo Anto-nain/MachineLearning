@@ -237,7 +237,7 @@ Pour construire un embedding, on dispose de 2 méthodes :
 
 * **Skip-Gram :** On part d'un mot et on entraine notre modèle à trouver les mots qui sont habituellement proches de lui. C'est d'une certaine façon l'approche opposée au CBW.
 
-# Sequence 6 : Les réseaux de neurones récurrents (RNN)
+# Séquence 6 : Les réseaux de neurones récurrents (RNN)
 
 ## Principe
 L'objectif d'un RNN est de traiter des séries de données (ex : texte, son, vidéo, etc ...). Pour cela, on va utiliser un neurone qui va se réinjecter sa sortie en entrée. Cela permet de traiter des données évolutives (notammment en fonction du temps pour les séries temporelles).
@@ -290,7 +290,7 @@ Ensuite, on va découper nos deux sets en plus petites séquences et les mélang
 
 **Attention :** Le passé peut-il expliquer le future ? Si oui, un tel réseau peut faire sens, sinon, ça ne fonctionnera pas.
 
-# Sequence 7 : PyTorch
+# Séquence 7 : PyTorch
 PyTorch se trouve, en terme de difficulté, à mi-chemin entre Tensorflow et Keras. Il est plus bas-niveau que Keras, mais moins que Tensorflow.
 
 ## PyTorch tensors
@@ -311,3 +311,121 @@ t1[0, 0].item() # retourne "1"
 De façon générale, il y a pas mal de diufférence de syntaxe mais rien de bien compliqué. Le gros aventage de PyTorch est qu'il permet de faire de la différenciation automatique lors de l'entrainement de réseau de neurones. C'est à de calculer le gradient de la fonction de perte par rapport aux paramètres du réseau.
 
  Une autre différence est de pouvoir basculer facilement entre CPU et GPU : Pour des gros calculs de prédiction ou d'entrainement, on peut basculer manuellement sur le GPU pour les réaliser. Il faut bien penser à revenir sur le CPU pour afficher les résultats.
+
+# Séquence 8 : Les transformers
+Les transformers sont utilisés majoritairement pour le traitement du langage naturel, mais aussi dans les autres domaines (traitement d'image etc...). Avec les anciennes méthodes d'embedding, on pouvait réaliser des opérations sur des mots : $woman + (king - man) \approx queen$.
+## Principe
+Pour donner toutes les informations necessaires au tranformer, on va lui fournir : 
+* Une information sur les mots : **embedding**
+* Une information sur la position des mots dans la phrase : **positional encoding**. Pour cet e,codage, un des premières fonction arrivée (en 2017) a été d'utiliser des fonctions $sinus$ et $cosinus$. Derrière cela se cache le fait qu'en binaire le premier bit est inversé (de 0 à 1 ou inversement) à chaque incrément, le second tout les 2 incréments, puis tout les 4 etc... en suivant une fonction périodique. D'où l'utilisation de fonctions trigonométriques pour encoder la position des mots. En gros, cela permet de compter en binaire dans un espace continue.
+
+## Historique
+* En premier on utilisait des CNN pour faire une convolution 1D. Mais très vite, on s'est rendu compte que cela ne fonctionnait pas très bien car on est limité par la taille de fenêtre pour la convolution et dès lors qu'on a des phrases assez longues, on perd beaucoup d'information.
+* En second, on a utilisé des réseaux récurrent(RNN) qui travaillaient en fonction des mots précédents mais aussi des mots suivants : de façon bi-directionnels avec un RNN dans un sens et un autre dans l'autre sens. Ainsi, on avait un réseau encoder qui travaillait pour comprendre la phrase d'entrée et un décoder qui générait par RNN la phrase de sortie en se bassant sur le réseau d'entrée.
+
+## Structure NLP (Natural Language Processing)
+La structure d'un système NLP (Natural Language Processing) est la suivante :
+* **Tokenization** : On découpe la phrase en mots
+* **Pre-processing (Embedding)** : On encode les mots que ça soit le token, mais aussi la position de ce dernier dans la phrase
+* **Transformer model (Encoder)** : On passe la phrase dans le transformer pour obtenir une série de vecteur où l'information de la phrase y ets bien dispatchée
+* **Task Head (Decoder)** : On passe la série de vecteur dans le décodeur (*Task Head*) pour réaliser la tâche souhaitée
+Qu'y a-t-il dans le transformer ?
+
+En entrée du transformer il y a une séquence de vecteur et en sortie il y a aussi une séquence de vecteur.
+
+Dans le transformer on retrouve plusieurs couches (dont on a montré par l'expérience que la modification des hyperparamètres d'une couche à l'autre ne changeait pas grand chose)
+
+Dans chaque couche on retrouve :
+* **Multi-Head Attention** : 
+* **Add & Norm** : Qui va ajouter et normaliser les données de la couche e sortie avec la couche d'entrée de la couche multi-head attention (pour assurer la bonne convergence de notre modèle)
+* **Feed Forward** : Qui est une petite couche de réseau dense (1 à 2 couches)
+* **Add & Norm** : Comme précédement en ajoutant l'entrée de la couche de feed-forward.
+
+## Self Attention
+En entrée on a une série de vecteur de même taille.
+
+Chaque vecteur d'entrée va passer dans 3 réseau de neurones dense en parallèle. Ce qui va créer 3 matrices (une dimension pour la taille des vecteurs d'entrée souvent égale à celle de sortie, une dimension pour le nombre de vecteur d'entrée toujours égale au nombre de veteur de sortie). Ces 3 matrices sont :
+* **Query (Q)**
+* **Key (K)** dont toutes les valeurs sont multipliées par un facteur $\frac{1}{\sqrt{d_k}}$ où $d_k$ est la longueur des vecteurs de sortie pour chaque mot (un des dimension de la matrice)
+* **Value (V)**
+
+Ensuite, on va calculer le produit entre $Q$ et $K^T$ pour obtenir la matrice des produits scalaires entre les mots. Ensuite on va passer cette matrice dans un fonction *SoftMax*  et obtenir la matrice d'attention : $AttentionMatrix = SoftMax(Q \times K^T)$. Cette matrice permet de mettre en avant les mots proches et impportants dans la phrase.
+
+Afin d'obtenir la matrice de sortie, on va multiplier la matrice d'attention avec la matrice $V$ et ainsi obtenir notre séquence de sortie. Ainsi, chaque vecteur de la séquence de sortie est une combinaison de l'information contenue dans la séquence d'entrée : $OutputMatrix = AttentionMatrix \times V$. Cela permet de transformer nos mots importants en vecteur de sortie importants.
+
+## Multi-Head Attention
+Lors du passage de la séquence d'entrée dans les réseaux denses pour créer nos matrices $Q$, $K$ et $V$, l'objectif va être de les séparer plusieurs entités (têtes) selon la dimension de la taille des vecteurs d'entrée (et non pas selon les nombre de vecteurs dans la séquence de sortie) En suite, maintenant que l'on a nos matrices ${Q_1, Q_2, ..., Q_n}$, ${K_1, K_2, ..., K_n}$ et ${V_1, V_2, ..., V_n}$ on peut réaliser les mêmes opération que précédement avec nos $n$ têtes et obtenir $n$ sorties : ${O_1, O_2, ..., O_n}$ qui une fois concaténées donnent la sortie de notre couche de multi-head attention. L'importance de ces multiples têtes est de ne pas oublier de l'information lors de la transformation de la séquence d'entrée en séquence de sortie car avec une seule tête on ne garde que l'information la plus importante ce qui induit beaucoup de perte.
+
+## Modèle de type auto-encoder / encodeur-décodeur
+Dans le principe vu plus haut, les matrices $Q$, $K$ et $V$ dans nos transformer ne travaillent qu'entre elle. ainsi, il est difficile de faire passer cette information au tranformer qui va décoder la sortie d'où l'importance de parfois d'ajouter l'information des matrices $Q$,$K$ et $V$ de l'encoder dans celles du décoder.
+
+## Entrainement
+Il est important de pré-entrainer notre modèle pour qu'il soit capable de correctement reconnaitre le langage afin d'éviter de repartir de 0 pour chaque nouvelle tâche. Dans l'exemple de Bert, le modèle de transformer a simplement été entrainé à reconnaitre des mots cachés. Pour lui faire faire des tâches plus complexes on va travailler sur la task head.
+
+## Comment choisir la tâche à réaliser ?
+Notre tranformer a déjà été entrainé. Il ne nos reste plus qu'à le faire travailler sur la couche Task Head pour lui faire faire ce que l'on veut. Par exemple, pour de la classification de texte, on va définir un petit réseau de neurone qui passera dans un softmax pour obtenir une probabilité de classe. On a ici un second réseau qui va se spécialiser sur la tâche à réaliser. Ainsi, le transformer va simplement générer du texte et lui donner donner du sens à partir de celui en entrée, et c'est la couche task head qui va s'entrainer à bien reconnaitre telle ou telle classe.
+
+De plus, en amont du texte d'entrée, on peut forcer le rajout d'un template de texte pour que notre modèle se spécialise sur certaines actions.
+
+## Visual tranformers
+Utiliser la structure de transformers, où l'on fait prédire une partie d'image à partir d'une autre, fonctionne ârfaitement avec la structure de transformers. 
+
+# Séquence 9 : Graph Neural Networks (GNN)
+Dans les images ou dans les textes, les données sont très strucutrées : chaque pixel a 8 voisins (moins pour les bords ou les coins), chaque mot est précédé et suivi d'un autre mot. Cependant, il existe des formes de données plus complexes comme les molécules, les maillages ou autre. Pour ces données on parle de géométric Deep Learning. Une grande partie de ces données peuvent être représentés dans des graphes.
+
+## La complexité
+Il est très facile d'avoir des graphes rapidement complexes avec énormement de noeuds et d'arrêtes. Finalement, il est important de comprendre sur des structures géométriques simples en sachant que cela peut être étendu à des structures plus complexes.
+
+## Les graphes
+Les graphes sont composées de :
+* **Noeuds** : Qui sont des entités qui peuvent être de différentes nature (molécules, personnes, etc...)
+* **Arrêtes** : Qui sont des liens entre les noeuds et qui peuvent être de différentes nature (type de liaison chimique, relation entre personnes, etc...)
+
+Ils peuvent être de diffrente nature :
+* **Non orientés** : La relation entre deux noeuds est réciproque dans les deux sens : A <-> B
+* **Orientés** : La relation entre deux noeuds est différente d'un sens à l'autre : A -> B
+
+Ainsi, la notion de chemin d'un noeud à l'autre n'a pas la même complexité que l'on soit dans un graphe orienté ou non. De plus, on peut parler de cycles dans un graph orienté lorsqu'il eiste un chemin permettant de relier un noeud à lui même.
+
+Finalement, on va pouvoir stocker de l'information dans les noeuds, les arrêtes et les graphes tout entier. Par exemple, dans le cas de molécules, on peut stocker l'information des atomes dans les noeuds, l'information des liaisons chimiques dans les arrêtes et l'information de la molécule dans le graphe.
+
+## Mesurer la structure d'un graphe
+Il existe plusieurs manières de mesurer la structure d'un graphe :
+* **Node Proximity** : Qui mesure la proximité entre deux noeuds. Cela peut se faire de différentes façons comme le nombre de noeud qui séparent les deux noeuds, ou bien la valeur du plus petit chemin entre les deux noeuds.
+* **Node centrality** : Qui mesure le nombre de chemin passant par un noeud. Cela permet de mesurer l'importance d'un noeud dans le graphe.
+
+## Représenter un graphe
+Il existe plusieurs manières de représenter un graphe :
+* **La matrice d'adjacence** : Qui est une matrice carrée de taille $n \times n$ où $n$ est le nombre de noeuds du graphe. Ainsi, chaque ligne et chaque colonne représente un noeud et la valeur de la case $(i,j)$ représente la valeur de l'arrête entre le noeud $i$ et le noeud $j$. Cette matrice est symétrique dans le cas d'un graphe non orienté.
+* **La liste d'adajacence** : Qui est une liste stockant les paires de noeuds reliés par une arrête.
+
+**Problèmes** : La matrice d'adjacence est de taille $nb_{noeuds}^2$ ce qui peut causer des problèmes de stockage, sachant qu'elle est assez creuse. La complexité pour trouver les arrêtes dabs une liste d'adjacence est bien plus élevée que pour la matrice d'adjacence.
+
+## Matrices usuelles
+* **Adjacence (W)** : La matrice d'adjacence du graphe stockant le poids des arrêtes.
+* **Degré (D)** : La matrice diagonale stockant sur la diagonale le degré de chaque noeud, c'est à dire le nombre d'arrêtes reliées à ce noeud.
+* **Laplacienne (L)** : La matrice $L = D - W$.
+* **labels (X)** : La matrice stockant les labels des noeuds.
+
+## Comment travailler sur des graphes ?
+Il s'agit de réaliser de l'embedding de graphe.
+* Dans un premier temps, à l'aide de nos matrices $X$ et $W$, on va transposer à l'aide d'un embedding nos informations dans un espace latent $Z$.
+* Ensuite, on va décoder ces informations pour prédire $\hat{y}$ qui va regrouper les information que l'on cherche à prédire sur notre graphe (une valeur, une classe, etc...).
+* On va aussi décoder notre graphe pour essayer de reconstruire notre matrice d'adjacence $\hat{W}$ (chercher une sorte de réciproque à l'embedding).
+
+Toute la difficulté est de trouver la bonne dimension de l'espace latent $Z$ (qui est un hyperparamètre de notre modèle). En cas d'un dimension trop petite, on ne pourra pas bien séparer les informations de notre graphe en fonction de la tâche à réaliser (sous-apprentissage). En cas d'une dimension trop grande, on va avoir un sur-apprentissage et notre modèle va apprendre des informations inutiles.
+
+## Entraînement inductif // transductif
+L'entraînement inductif consiste à entraîner notre modèle sur plein de graphes, puis avec notre modèle entrainé on va prendre un graphe et lui appliquer la tâche pour laquelle notre modèle a été entraîné.
+
+Pour un graphe il peut être intéressant de réaliser un entraînement transductif. Cela consiste à entraîner notre modèle sur un seul graphe. On va entraîner notre modèle sur des portions connues de ce graphe, puis, on va utiliser notre modèle pour prédire des portions manquantes de notre graphe. Cela permet notamment de faire du Node Labeling, c'est à dire de complèter la valeur de noeuds dont on ne connnait pas la valeur grâce au reste du graphe. Il faut faire attention, car ce modèle est alors spécialisé sur un seul graphe et ne peut pas être utilisé sur d'autres graphes.
+
+## Tâches possibles
+* **Clustering (mettre des labels sur les noeuds)** : Qui consiste à regrouper les noeuds en fonction de leurs similarités (ex : regrouper les personnes en fonction de leurs relations ou détecter des bots).
+* **Link making (mettre des arrêtes entre les noeuds)** : Qui consiste à prédire les relations entre les noeuds. Utilisé par Alphafold pour préduire le recouvrement 3D des protéines, (en reliant les molécules entre elles).
+* **Graph classification** : Qui consiste à prédire une valeur sur le graphe entier (ex : prédire le type de molécule, sa dangerosité, etc...).
+
+## Différents types de réseaux sur les graphes
+* **Convolution de graphe** : Puisque le nombre de voisin n'est pas fixe, la création de filtres est plus compliquée. Il s'agit donc d'utiliser des opérateurs invariant par permutation (ex : moyenne, max, etc...). Le point fort est que l'on peut facilement récupérer les informations de noeuds voisins éloignés, il peut donc être intéressant de mettre en place un *cut-off* pour ne pas prendre en compte les noeuds trop éloignés. On peut même créer un *virtual node* qui est relié a tout les noeuds du graphe pour permettre de passer des informations entre les noeuds éloignés.
+* **Message Passing** : L'objectif est de créer une tranformation que le réseau va pouvoir apprendre qui permettra de transformer après embedding, un vecteur de l'espace des arrête en vecteur de l'espace des noeuds ou en vecteur de l'espace de graphes. Ainsi, par exemple, on va pouvoir utiliser les informations sur les noeuds pour mettre à jour les informations sur les arrêtes, alors que cela était impossible.
+* **Graph Tranformer Network** : Il est aussi possible d'utiliser des transformers sur les graphes. La structure est la même qu'un tranformer classqiue mais on doit bien s'assurer de pouvoir comparer les informations des noeuds et les informations des arrêtes.
