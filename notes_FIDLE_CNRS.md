@@ -429,3 +429,183 @@ Pour un graphe il peut être intéressant de réaliser un entraînement transduc
 * **Convolution de graphe** : Puisque le nombre de voisin n'est pas fixe, la création de filtres est plus compliquée. Il s'agit donc d'utiliser des opérateurs invariant par permutation (ex : moyenne, max, etc...). Le point fort est que l'on peut facilement récupérer les informations de noeuds voisins éloignés, il peut donc être intéressant de mettre en place un *cut-off* pour ne pas prendre en compte les noeuds trop éloignés. On peut même créer un *virtual node* qui est relié a tout les noeuds du graphe pour permettre de passer des informations entre les noeuds éloignés.
 * **Message Passing** : L'objectif est de créer une tranformation que le réseau va pouvoir apprendre qui permettra de transformer après embedding, un vecteur de l'espace des arrête en vecteur de l'espace des noeuds ou en vecteur de l'espace de graphes. Ainsi, par exemple, on va pouvoir utiliser les informations sur les noeuds pour mettre à jour les informations sur les arrêtes, alors que cela était impossible.
 * **Graph Tranformer Network** : Il est aussi possible d'utiliser des transformers sur les graphes. La structure est la même qu'un tranformer classqiue mais on doit bien s'assurer de pouvoir comparer les informations des noeuds et les informations des arrêtes.
+
+# Séquence 10 : Les réseaux auto-encoders (AE)
+## Principe
+L'objectif est de partir d'une information en entrée qui va être réduite en toute petite dimension dans un espace latent (encodage), puis qui va être retransformée dans l'espace recherché (décodage). Une bonne façon de visualiser cela est de s'imagine une image bruitée en entrée que l'on va essayer de débruiter.
+
+On dispose alors de deux parties dans notre réseau :
+* **L'encodeur** : Qui va réduire la dimension de notre information jusqu'à la taille de notre espace latent (typiquement utilisé pour des images donc on travail notamment avec un réseau convolutif, mais pas forcément)
+* **Le décodeur** : Qui va transformer la représentation de notre entrée dans l'espace latent en une représentation dans l'espace de sortie.
+
+Ici on parle d'apprentissage auto-supervisé. *Supervisé* car on possède initialement une image bruitée et une image non bruitée. *Auto* car on a pas besoin qu'un humain vienne nous dire si notre image est bruitée ou non.
+
+## Convolution transposée
+Lorsque l'on se trouve dans le cadre d'un réseau convolutif, on peut réaliser la transposée d'un convolution (qui fonctionne de façon symétrique à la convolution). C'est à dire qu'au lieu d'utiliser les kernels pour réduire la dimension de notre image, on va l'augmenter. 
+
+Le sens des paramètres de **stride** et de **padding** ne sont plus du tout les mêmes. Ainsi, pour une convolution, un stride de 2 va réduire la taille de notre image par 2, alors que pour une convolution transposée, un stride de 2 va augmenter la taille de notre image par 2. De même, pour une convolution, un padding de 1 va ajouter un pixel de bordure à notre image, alors que pour une convolution transposée, un padding de 1 va enlever un pixel de bordure à notre image.
+
+Une autre façon d'augmenter la dimension de notre image est d'utiliser des couches de **UpSampling** qui vont simplement répéter les pixels de notre image pour augmenter sa taille, par exemple :
+$ \begin{bmatrix} 1 & 2 \\ 3 & 4 \end{bmatrix} \rightarrow \begin{bmatrix} 1 & 1 & 2 & 2 \\ 1 & 1 & 2 & 2 \\ 3 & 3 & 4 & 4 \\ 3 & 3 & 4 & 4 \end{bmatrix}$
+
+## Multiple input/output model
+Il est possible de créer des modèles à plusieurs entrées. Cela peut être utile pour créer des modèles qui prennent en entrée des données de nature différentes (ex : image + texte). Pour faire cela, il suffit simplement de concaténer les entrées une fois qu'elles ont été traitées par leur encodeur respectif.
+
+Deplus, cela permet de créer des modèles avec de multiples sorties pour des tâches différentes. Par exemple, pour un modèle qui prend en entrée une image et qui doit prédire la classe de l'image, mais aussi la débruiter.
+
+
+## Inception model
+
+Il s'agit d'avior plusieurs chemins internes qui vont chacun traiter l'information de façon différente. À la fin, il faut utiliser une conche de concaténation que va rassembler toutes nos informations pour les traiter ensemble.
+
+
+
+# Séquence 11 : Les Variational Auto-Encoders (VAE)
+Retour sur le prince d'un AE : On part d'une information en entrée qui va être encodé et réduite dans un espace latent "Z" puis décodé pour revenir dans l'espace de sortie. Avec ```keras```, la structure est très simple :
+```python
+z = encoder(inputs)
+outputs = decoder(z)
+```
+On avait notamment noté que la vision de l'espace latent permettait de bien visualiser la distribution de nos donnnées. Dans le cas d'une classification, en projettant nos données de l'espace latent on visualisait bien les clusters des différentes classes.
+
+## Principe d'un VAE 
+
+Le principe est de réussir à obtenir pour chaque dimension de de l'espace latent :
+* Une moyenne $\mu$ 
+* Un écart-type $\sigma$
+Ainsi on possède deux vecteurs de la même dimension que l'espace latent qui représentent la distribution probabiliste de nos entrées dans l'espace latent.
+
+Une fois que l'on possède ces vecteurs, on va piocher alléatoirement un point, suivant la distribution que l'on vient de réaliser, et vérifier si il sera décodé  comme il le faut.
+
+Finalement, notre réseau va apprendre à générer $\mu$ et $\sigma$ pour que losrque l'on ensuite un point avec ces paramètres, il soit correctement décodé.
+
+## Calcul de la perte de notre réseau
+
+Dans une grande partie des cas, on souhaite reconstruire notre entrée initiale avec la sortie de notre VAE. Il s'agit donc de calculer la perte par reconstruction de cette dernière $loss_{reconstruction}$ ; très souvent via une *cross-entropy*.
+
+Parallèlement à cela, on peut aussi se retrouver avec un éparpillement dans l'espace latent des distributions générées par $\mu$ et $\sigma$, chose que l'on souhaite limiter. On va donc aussi prendre en compte un terme de régularisation qui va limiter cet éparpillement. Il s'agit de la divergence de Kullback-Leibler (KL) qui permet de mesurer la distance entre deux distributions. Une expressions simplifiée de cette divergence est :
+$D_{KL} = \frac{1}{2} \sum_{i=1}^{n} (\sigma_i^2 + \mu_i^2 - 1 - log(\sigma_i^2))$ avec $k$ la dimension de l'espace latent (et donc des vecteurs $\mu$ et $\sigma$).
+
+Finalement, on va construire notre fonction de perte en appliquant deux facteurs pour chosir l'importance de chaque perte :
+
+$loss = \alpha_{rec}loss_{reconstruction} + \alpha_{KL}D_{KL}$
+
+Enfin, il faut faire attention au coefficient que l'on donne pour chaque perte :
+* Si on prend trop en compte la reconstruction, cette dernière sera efficace, et on verra bien apparaitre les clusters dans l'espace latent : les distributions ne se recouvrent que très peu (d'où la bonne reconstruction). Cependant, les valeurs de $\mu$ et $\sigma$ seront très éparces : des clusters seront ultra denses et centrés ; d'autres seront extrêmement éparpillés et centrés loin de l'origine.
+* Si on prend trop en compte la régularisation, toutes nos distributions seront bien centrées en 0 avec un écart-type proche de 1, mais elles se chevaucheront alors toutes et on ne pourra plus distinguer les clusters dans l'espace latent. De ce fait, la reconstruction sera très mauvaise.
+
+De bons coefficients s'assurent que les clusters se font proche de 0 avec des écart-types proches de 1, tout en restant bien séparés les uns des autres sans trop se chevaucher.
+
+## Comment générer de nouvelles données ?
+Maintenant que l'on possède des classes nos trop éparpillées, non trop chevauchantes, on peut à l'aide d'une grande quantitée de points, générer un grande quantité de donnée sur notre espace latent une fois décodée. Et ce avec une grande précision.
+
+# Séquence 12 XXX
+
+# Séquence 13 : Les Generative Adversarial Networks (GAN)
+## Principe
+Le principe est de faire s'affronter deux réseaux de neurones :
+* L'un va produire des donnnées
+* L'autre va s'entrainer à visualiser si les données sont réelles ou non
+
+## Entraînement
+On va avoir un processus d'entraînement en deux temps. Il faut entraîner successivement le générateur, puis le discriminateur, puis le générateur, puis le discriminateur, etc... jusqu'à ce que l'on obtienne un résultat satisfaisant.
+* Du point de vue du discriminateur, il s'agit de recevoir des données en entrée et de dire si elles sont vraies ou fausses (classification binaire).
+* Du point de vue du générateur, on labelise nos données comme étant vraies, puis si elles sont annoncées comme vraies (victoire) on a bien dupé de discriminateur, sinon (défaite) on a perdu et on définit notre perte comme la victoir du discriminateur. À noter que nos données d'entrée sont générées aléatoirement.
+
+**Attention** : Le GAN sont très gloutons en terme de ressources. Il faut donc bien penser à les utiliser sur des données de petite taille.
+
+Pour faire la rétropropagation dans keras, il peut être intéressant de faire le calcul du gradient à la main avec ```Tensorflow```
+
+## Amélioration des GANs
+Les GAN standards sont assez fragiles notamment à caude de la disparition du gradient, ce qui va donner lieu à certaines améliorations :
+* Un nouveau calcul du coût : Earth Mover Distance (EMD) ou Wasserstein qui va calculer la distance entre les distributions de probabilité des vraies et fausses données. Le calcul est très compliqué et lourd à mettre en place. Cela donne un réécriture du coût :
+
+  $loss_{critic} = \frac{1}{m}\sum_{i=1}^{m}[D(x_i) - D(G(z_i))]$
+
+  $loss_{generator} = \frac{1}{m}\sum_{i=1}^{m}[D(G(z_i))]$
+
+  avec $m$ le nombre de données en entrée, $x_i$ les données réelles, $z_i$ les données générées et $D(x)$ la sortie du discriminateur pour des vraies images, G(z) la sortie du générateur pour une valeur z de l'espace latent tel que G(z) ressemble à une vraie image alors que c'est une fausse et D(G(z)) la sortie du discriminateur pour une fausse image.
+
+  Il s'agira ici de faire en sorte que la critique pour une vraie image soit bien meilleure que pour une fausse image tout en concervant l'idée que le générateur arrive bien à tromper le discriminateur. De plus, en limitant la valeur des poids dans [-0.01, 0.01] (**on parle de clipping**), on s'assure la caractéristique k-Lipschitzen du discriminateur, assurant ainsi sa caractéristique bornée.
+
+* L'ajout de pénalité du gradient. Un terme supplémentaire vient se rajouter dans la fonction de coût du discriminateur :
+
+  $loss_{critic} = \frac{1}{m}\sum_{i=1}^{m}[D(x_i) - D(G(z_i))] + \lambda \frac{1}{m}\sum_{i=1}^{m}[(||\nabla D(\hat{x_i})||_2 - 1)^2]$
+
+  avec $\hat{x_i} = \alpha x_i + (1 - \alpha)G(z_i)$, $\alpha$ un nombre aléatoire entre 0 et 1 et $\lambda$ le coefficient de la pénalité du gradient. Cela permet de s'assurer de la bonne convergence du gradient sans avoir à faire du clipping.
+
+# Séquence 14 : Les Diffusion Probabilistic Models (DPM)
+Il s'agit de modèles ayant permis les dernières avancées dans le domaine de la génération d'images à partir de textes.
+
+Avec les GANs et les VAEs, on a vu de type de modèles génératifs. De plus, on peut les évaluer de deux façons : 
+* $log(P(x))$ ou en français "log-vraissemblance" : La probabilité que notre modèle génère une image $x$.
+* $FID$ : La distance entre les distributions de probabilité des images générées et des images réelles.
+
+Les VAEs ont un bon score $log(P(x))$ mais un mauvais $FID$ et génère donc de grandes données diversifiées.
+
+Les GANs ont un mauvais score $log(P(x))$ mais un bon $FID$ et génère donc des données peu diversifiées mais de bonne qualité (tout en étant difficile à entraîner).
+
+L'objectif est de trouver un entre-deux.
+
+## Architecture
+
+L'architecture générale est similaire à celle d'un VAE :
+* Notre donnée en entrée est bruitée via un encodeur.
+* Elle est projetée dans l'espace latent $Z$.
+* Elle est décodée pour revenir dans l'espace de sortie.
+
+La différence se fait dans la taille de l'espace latent. Pour un VAE, celui-ci était de petite taille ; pour un DPM, il sera de la même dimension que l'espace de sortie. De plus, la phase d'encodage n'utilisera pas de réseau de neurones contrairement aux VAEs, mais un encodeur déterministe.
+
+## Principe
+*Définition* : Lorsque l'on parle de bruit sur une image, on parle de bruit gaussien. C'est-à-dire que chaque pixel est tiré aléatoirement suivant une loi noramle centrée réduite.
+
+Il y a trois processus dans un DPM :
+* Le Forward Diffusion Process : Qui consiste à ajouter du bruit à notre image de départ pour obtenir une image bruitée. Il va ajouter un bruit un nombre discret de fois : $T$ (un hyperparamètre qui varie de 100 a quelques milliers). $x_0$ est notre image de départ et $x_T$ est notre image bruitée et $x_{t=5}$ est moins bruitée que $x_{t=10}$. À $x_T$ notre image est un pur bruit gaussien.
+* Le Reverse Diffusion Process : C'est là que l'on a notre réseau de neurones. Il va prendre une image bruitée $x_t$ en entrée, et il va ressortir une image moins bruitée $x_{t-1}$. 
+
+  L'objectif de notre modèle est qu'il soit capable de débruiter : 
+  * Une image de n'importe quel temps $t$ à l'étape précedante $t-1$.
+  * N'importe quelle image de notre dataset
+
+* Sampling Process : Maintenant, on est capable, à partir de n'importe quel bruit gaussien $x_T$, de le débruiter pour obtenir une image $x_0$.
+
+## Forward Diffusion Process
+
+Pour passer d'un image $x_{t-1}$ à $x_t$, on va rajouter du bruit gaussien suivant la chaîne de Markov. Le bruit $q$ rajouté suit une loi normale : $q(x_t|x_{t-1}) := \mathcal{N}(x_t; \sqrt{1-\beta_t}x_{t-1},\beta_tI)$ avec $\sqrt{1-\beta_t}x_{t-1}$ la moyenne et $\beta_tI$ la variance. 
+
+Cela revient à écrire : $x_t = \sqrt{1-\beta_t}x_{t-1} + \sqrt{\beta_t}z_{t-1}$ avec $z_{t-1} \sim \mathcal{N}(0,I)$ et $\beta_t \in [0,1]$ sachant que $\forall t ~\beta_t < \beta_{t+1}$.
+
+Finalement, il existe une façon d'obtenir $x_t$ à partir de $x_0$ sans générer toutes les images intermédiaires : $x_t = \sqrt{\bar{\alpha_t}}x_0+\sqrt{1-\bar{\alpha_t}}z $ avec  $\bar{\alpha_t} = \prod_{i=1}^{t}(1-\beta_i)$ et $z \sim \mathcal{N}(0,I)$.
+
+## Reverse Diffusion Process
+
+Comme l'image $x_t$ est bruitée par $z_{t}$ à partir de $x_0$, réussir à retrouver $x_{t-1}$ est équivalent à réussir à trouver le bruit qui a été utilisé. L'objectif pour trouver $x_{t-1}$ est donc de trouver $z_{t}$ à partir de $x_t$.
+
+## Entraînement
+Le principe de l'algorithme est le suivant :
+* On prend notre image $x_0$.
+* On génère aléatoirement $t \in [|0,T|]$.
+* On génère notre bruit gaussien (qui a la forme de l'image) $z_t$
+* On génère notre image bruitée $x_t$ suivant l'algorithme de forward diffusion : $x_t = \sqrt{\bar{\alpha_t}}x_0+\sqrt{1-\bar{\alpha_t}}z_t $.
+* On passe notre image bruitée dans notre réseau de neurones pour essayer d'obtenir le bruit qui l'a générée : $z_{pred} = f(x_t,t)$.
+* On calcul la perte : $loss = ||z_{pred} - z_t||_2^2$.
+* On fait la rétropropagation de notre erreur dans notre réseau de neurones.
+
+## Génération d'image (sampling process)
+Pour généere une image, le principe est le suivant :
+* On génère $x_T$ notre bruit gaussien.
+* On rentre dans notre modèle $x_T$ et $T$ afin d'obtenir $z_{pred} = f(x_T,T) \approx z_T$.
+* On peut donc calculer $x_{t-1}$ de façon approchée : $x_{t-1}\approx \frac{1}{\sqrt{1-\beta_t}}(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha_t}}}z_{pred})$.
+* On recommence jusqu'à obtenir $x_0$.
+
+## Améliorations
+* **Cosine Scheduling** : L'objectif est de faire en sorte que l'évolution de $\beta_t$ suive une évolution en $cos^2$. Cela permet de rendre l'évolution de $\bar{\alpha_t}$ plus lente et plus linéaire ce qui rend l'impact du bruit mieux réparti lors du débruitage.
+* **Variance Learning**
+
+## Noise Intermolation
+
+Une chose importante à noter est que l'on peut faire de l'interpolation de bruit. C'est à dire que l'on peut prendre deux bruits $z_1$ et $z_2$ et en générer un troisième $z_3$ qui est un mélange des deux. Ainsi, si $x_1$ et $x_2$ sont générés par les bruits $z_1$ et $z_2$, alors l'image $x_3$ générée par le bruit $z_3$ sera un mélange des deux images $x_1$ et $x_2$. Ex : $x_1$ est un cheval, $x_2$ est un ange, $x_3$ peut ressembler à pégase.
+
+## Entrainement du text-to-image
+
+L'objectif est d'entrainer notre modèle à transformer un mot en un point dans l'espace latent, puis de transformer nos mots en image, notamment en utilisant de la self attention. Par contre, la génération d'image se fait dirrectement depuis l'espace latent.
