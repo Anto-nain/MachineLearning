@@ -609,3 +609,123 @@ Une chose importante à noter est que l'on peut faire de l'interpolation de brui
 ## Entrainement du text-to-image
 
 L'objectif est d'entrainer notre modèle à transformer un mot en un point dans l'espace latent, puis de transformer nos mots en image, notamment en utilisant de la self attention. Par contre, la génération d'image se fait dirrectement depuis l'espace latent.
+
+# Séquence 15 : IA, droit, société et éthique
+
+L'aboutissement des IAs pourrait être lié à l'apparition de l'AGI (Artificial General Intelligence) qui serait une IA capable de s'auto-entraîner de façon autonome sans qu'une personne ait à la programmer. Finalement, une telle IA serait capable de s'entrainer automatiquement sur n'importe quel type de tâche. C'est notamment ce genre d'IA qui causent la fin du monde dans les films.
+
+De plus, les IA sont pour l'instant incapable de faire preuve de **sens commun**. Là où un humain est capable d'obtenir le sens commun au cours de son évolution et de sa vie, une IA ne peut pas l'apprendre naturellement. Nous sommes pour l'instant restreint à lui apprendre de façon explicite (bien que des "livres" de sens communs n'existent pas). 
+
+D'un point de vue de la loi, il s'agit de créer un système de certification permettant de protéger les utilisateurs. Notamment en s'assurant qu'il n'y ai aucun biais discriminatoire dans la data, dans le système, etc...
+
+Comment détecter un algorithme d'IA discriminant ? Une façon de vérifier cela consiste à regarder si l'algorithme derrière l'IA fonctionne aussi bien pour tout type de population, et notamment suivant des critères dit discriminants. Par exemple, si l'on prend un algorithme de détection de fraude, on peut regarder si il fonctionne aussi bien pour les hommes que pour les femmes, pour les blancs que pour les noirs, etc... Si ce n'est pas le cas, alors il y a un biais discriminant. Au contraire, si l'algorithme est discriminant envers tout le monde, alors il n'y a pas de problème.
+
+# Séquence 16 : Model and training optimization
+
+ On parlera ici plutôt de software optimization : on ne va pas optimiser notre matériel, mais notre modèle.
+
+## Que cherchons-nous à optimiser ?
+ On cherche à atteindre le minimum d'erreur le plus facilement.
+
+## Optimisations possibles
+* La profondeur de notre réseau 
+* La largeur de notre réseau
+* Décroissance de la courbe d'apprentissage : il s'agit de faire évoluer notre taux d'apprentissage au cours de l'entraînement. On peut par exemple le faire décroître exponentiellement. Plusieurs évolutions existent :
+  * **Step decay** : On va faire décroître notre taux d'apprentissage de façon constante. Cela permet de faire de grands pas au début de l'entraînement, puis de plus en plus petit au fur et à mesure que l'on se rapproche du minimum. Avoir un faible taux d'apprentisaage en fin d'entraînement permet de bien converger vers notre minimum.
+  * **Cyclical learning rate** : On va augmenter puis décroitre notre taux d'apprentissage, afin de nous permettre de "visiter" plus de minimums locaux. Cela permet de sortir d'un minimum local pour aller vers un autre minimum local plus intéressant.
+
+  Il peut aussi être initéressant de tester plusieurs taux d'apprentissages sur les 2 - 3 premières époques pour voir sur quel intervalle de taux d'apprentissage on peut travailler. Cela permet de sélectionner mieux notre taux d'apprentissage.
+
+  * **Stochastic Gradient Descent (SGD)** : Il s'agit de faire une descente de gradient sur un batch de données. Puis d'optimiser cette descente batch par batch.
+
+  * **SGD with momentum** : Lorsque l'on voit une sorte de moment d'inertie dans le gradient ; que le gradient temps rapidement dans une direction, on va accélérer son taux d'apprentissage dans cette direction. Cela permet de converger plus rapidement dans la direction du minimum.
+
+  * **Adaptative optimizer** : Il s'agit d'avoir un taux d'apprentissage évoluant de façon adpatative à l'évolution du gradient. C'est le fonctionnement d'Adam.
+
+* La distribution des poids. Il s'agit de faire en sorte, au cours de l'apprentissage, que les poids de notre réseau soient bien distribués parmis les paramètres afin que chacun ait son importance.
+* Le gradient clipping : Lorsque notre gradient devient trop grand, on va réduire le taux d'apprentissage pour ne pas faire de trop grand pas. Cela permet alors de réduire le gradient localement, et de permettre d'éviter la divergence du gradient. Autour de ce grand gradient, on a donc normalement un région où l'erreur la chûter brutalement.
+* Le calcul en batch. Pour faciliter le calcul du gradient, il peut être intéressant de faire le calcul en batch, ce qui permet de réduire le temps de calcul.
+* La préparation des données est aussi très important car avec de bonnes données, on aura nécessairement de meilleurs résultats.
+* Astuces d'entrainement :
+  * Attention aux logs : trop afficher de choses à l'écran ralentit l'entraînement.
+  * Attention à ne pas calculer le gradient pour le set de validation.
+
+* Fine tuning : Il s'agit notamement, lorsque l'on a préentraîné un modèle sur un dataset, et que l'on possède un autre dataset sur lequel s'entraîner, on peut garder et repartir des poids pré-entraînés. Pour cela, il faut que les datasets ne soient pas trop différents, et on conserve surtout majoritairement les dernières couches de notre modèle.
+
+* Choix des hyperparamètres. Il s'agiot de trouver les hyperparamètres les plus performants. Pour faire cette recherche, il s'agit d'essayer d'optimiser nos hyperparamètres (c'est de l'optimisation d'optimisation)
+
+
+# Séquence 17 : Accélération matérielle
+
+L'objectif est de faire tourner nos modèles de façon rapipde, précise et économique. Ici, on va traiter des optimisation hardware. Pour l'instant, une telle amélioration a été de démultiplier le nombre de GPUs et de plus en plus gros.
+
+Dans les faits, mieux vaut auglmenter en gammme que de multiplier les GPUs. En effet, on remarque un meilleur ratio performance / Watt et performance / Prix.
+
+## Apprentissage
+
+Pendant l'apprentissage, on va fonctionner de la façon suivante :
+* On part du dataset
+* On va le découper en batch
+* On fait l'apprentissage sur un batch :
+  * On va faire une passe avant 
+  * On obtient $\epsilon$ : l'erreur
+  * On fait une passe arrière
+  * On obtient le gradient
+  * On mets tout ça dans l'optimiseur
+  * On obtient les nouveaux poids et on mets à jour notre réseau
+
+Le soucis matériel que l'on peut avoir est qu'il est nécessaire de garder en mémoire les activations intermédiaires afin de calculer le gradient.
+
+## Data Loaders
+Une des soucis consiste à charger les données en mémoire. Pour cela, on va utiliser des Data Loaders. Il s'agit de faire un chargement des données batch par batch. Cela permet de ne pas avoir à charger toutes les données en mémoire, et de ne charger que les données dont on a besoin. De plus, il faut noter que notre batch de données doit avoir un travail de pré-traitement. Cette question est très présente dans un travail sur des images. 
+
+## Le problème des CPUs
+Le problème est qu'un CPU n'est pas assez rapide pour traiter les données. Mais, augmenter notre fréquence de CPU n'est pas viable car cela concomme trop et chauffe trop. Finalement, mieux vaut multiplier les CPUs pour traiter nos données, mais pas pour faire de l'apprentissage.
+
+## Précision du calcul
+
+Vu l'imprécision de nos calculs en ML avec nos GPUs, travailler sur des nombres à 32 bits est plus que suffisant. On peut donc travailler sur des nombres à 16 bits, ce qui permet de réduire la taille de nos données et donc de réduire le temps de calcul.
+
+## Distribution parallèle de la donnée
+
+Lorsque le batch est trop gros, on va faire un parallèlisme de données. On va donc découper notre batch en plusieurs batchs plus petits, et on va les envoyer sur plusieurs GPUs. Finalement, on va faire une moyenne des gradients obtenus sur chaque GPU pour obtenir le gradient final. Ce gradient final est ensuite utilisé pour mettre à jour les poids de notre réseau (étant tous au même état car le calcul est fait en prallèle). 
+
+## Model parallelism
+
+L'objectif est de découper notre modèle en plusieurs parties, et de les envoyer sur plusieurs GPUs. Ainsi, certains GPUs ont besoin du calcul de la passe avant de d'autres GPUs, où certains GPUs, on besoin de la passe arrière de d'autres. Cela permet de réduire le temps de calcul. Cependant, il faut faire attention à ne pas avoir de goulot d'étranglement. En effet, si une partie de notre modèle est plus longue à calculer que les autres, alors on va devoir attendre que cette partie soit calculée pour pouvoir continuer.
+
+# Séquence 18 : Deep Reinforcement Learning - Tactiques et Stratégies
+
+## Reinforcement Learning
+DU plus simple au plus complexe, on peut utiliser le Reinforcement Learning dans différents environnements :
+* Pour se déplacer sur un plateau
+* Dans un jeu vidéo
+* Dans une simulation
+* Dans la réalité
+
+Il y a plusieurs causes à cela :
+* Le type de physique : déterministe (une cause = une conséquence) / stochastique (une cause = plusieurs conséquences)
+* La visibilité de l'environnement : complète / partielle
+* La durée de l'épisode : fini (début / fin du jeu) / infini (le monde réel)
+* La physique de l'environnement : statique (la physique reste toujours la même) / dynamique (la physique peut changer au cours du temps)
+* Le type de contrôle : discret (on peut faire un nombre fini d'actions, haut ; bas ; gauche ; droite) / continu (on peut faire un nombre infini d'actions)
+* Le nombre d'agents : un seul / plusieurs
+
+L'avantage du Reinforcement Learning est que comparé à un apprentissage supervisé, on peut traiter un grand nombre d'action de façon dynamique là où un apprentissage supervisé travail nécessairement en statique. Cependant, il est difficile de l'évaluer simplement car on doit définir une "récompense" pour chaque action.
+
+## Contrôle optimal
+Dans un environement à contrôle discret, stochastique, on peut définir une chaîne de Markoff (un graphe donnant l'ensemble des états possibles). Ensuite, on peut utiliser les équations de Bellman pour définir la valeur des états vis à vis de récompense finale :
+* fonction $Q$ : permet de définir la valeur de la récompense que l'on pourrait obtenir au final à partir d'un état et d'une action à faire
+* fonction $V$ : permet de définir la valeur maxiamle de la récompense promise par la fonction $Q$ que l'on pourrait obtenir au final à partir d'un état, ce qui nous donne la valeur de l'action à faire
+
+## Comment faire du machine learning avec du RL ?
+Il s'agit déjà de définir le type d'action à évaluer. Dans un premier temps, il est plus simple d'évaluer la modification d'une action sur l'ensemble des actions faites. Ensuite, il est important au cours de l'apprentissage que l'agent apprenne en faisant de l'exploration et de l'exploitation. Au début il ne sait rien, donc il explore plus qu'il n'exploite. Puis, au fur et à mesure qu'il apprend, il exploite plus qu'il n'explore. C'est la méthode **$\bold{\epsilon}$-greedy**. Deux méthodes : 
+* **SARSA (State Action Reward State Action ) On-policy** : on va faire une mise à jour de la fonction $Q$ à chaque étape selon la politique de l'agent (ratio exploration / exploitation). **$\bold{\epsilon}$-greedy** est utilisée pour calculer $Q$ et pour décider la meilleure action à faire (2 fois au total).
+* **Q-Learning Off-policy** : on va faire une mise à jour de la fonction $Q$ à chaque épisode avec **$\bold{\epsilon}$-greedy**, mais on va décider de l'action à faire avec la fonction $Q$ (1 fois au total).
+
+Finalement, à partir de $Q$ on trouve $V$ le chemin 
+
+Pour faire du machine learning, il s'agit de construire $Q$ notre table de décision à partir de l'expérience de l'agent. Pour cela, on va utiliser un réseau de neurones. On va donc utiliser un réseau de neurones pour approximer $Q$. Le **DQL** (Deep Q-Learning) est une méthode qui permet de faire cela, il s'agit d'utiliser des entrées discrètes et de définir l'action en sortie. Finalement, il s'agit ensuite de générer une action avec un réseau de neurone, et critiquer cette action avec un second. 
+
+## Le policy gradient
+Il s'agit de faire en sorte que notre réseau de neurone ne passe plus par $Q$, mais qu'il donne directement la probabilité de chaque action. L'avantage est que l'on a directement la sortie utilisable de notre réseau. La difficulté est que l'on a plus la notion d'expérience / d'exploration
