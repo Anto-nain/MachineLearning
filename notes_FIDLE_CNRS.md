@@ -729,3 +729,8 @@ Pour faire du machine learning, il s'agit de construire $Q$ notre table de déci
 
 ## Le policy gradient
 Il s'agit de faire en sorte que notre réseau de neurone ne passe plus par $Q$, mais qu'il donne directement la probabilité de chaque action. L'avantage est que l'on a directement la sortie utilisable de notre réseau. La difficulté est que l'on a plus la notion d'expérience / d'exploration
+
+# Séquence 19 : Physics Informed Neural Networks (PINNs)
+Comment guider l'apprentissage par la théorie ?
+
+Pour commencer, on fait rentrer dans un réseau de neurone nos valeurs $x$ et $t$ et on reçoit en sortie $\tilde{u} = f(x,t)$. Cette valeur $\tilde{u}$ sera alors injectée dans l'équation à résoudre, et l'erreur qui en découle affinera notre réeau de neurone. En fait, $\tilde{u}$ est une approximation de $u$, qui est la solution de notre équation.
